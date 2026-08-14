@@ -1,0 +1,1 @@
+export function CaseReports() { return <div className='p-4 text-text'>CaseReports Component</div>; }

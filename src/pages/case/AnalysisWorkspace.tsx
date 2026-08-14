@@ -1,0 +1,1 @@
+export function AnalysisWorkspace() { return <div className='p-4 text-text'>AnalysisWorkspace Component</div>; }

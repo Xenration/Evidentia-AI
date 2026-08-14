@@ -1,0 +1,1 @@
+export function ActivityLog() { return <div className='p-4 text-text'>ActivityLog Component</div>; }
