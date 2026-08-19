@@ -5,7 +5,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Ca
 import { Briefcase, AlertTriangle, FileText, CheckSquare, ChevronRight, Activity } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '../../utils';
-
+import { GeographicCaseMap } from '../../components/map/GeographicCaseMap';
 export function Dashboard() {
   const [cases, setCases] = useState<Case[]>([]);
 
@@ -180,6 +180,8 @@ export function Dashboard() {
           </Card>
         </div>
       </div>
+            {/* Geographic Case Map */}
+      <GeographicCaseMap />
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { Case, Evidence, Entity, TimelineEvent, Contradiction, Hypothesis, InvestigationTask } from '../types';
+import { Case, Evidence, Entity, TimelineEvent, Contradiction, Hypothesis, InvestigationTask, GeoCase } from '../types';
 
 export const mockCases: Case[] = [
   {
@@ -141,4 +141,31 @@ export const mockInvestigationTasks: InvestigationTask[] = [
   { id: 'TSK-04', caseId: 'CASE-2026-001', task: 'Decrypt USB Drive', reason: 'May contain critical information about Project X or Chen\'s motives.', relatedEvidenceId: 'E-005', priority: 'High', status: 'In Progress' },
   { id: 'TSK-05', caseId: 'CASE-2026-001', task: 'Verify James Smith\'s alibi', reason: 'Smith claims Chen left his keycard. Need to verify Smith\'s whereabouts during the breach.', relatedContradictionId: 'C-01', priority: 'Medium', status: 'Pending' },
   { id: 'TSK-06', caseId: 'CASE-2026-001', task: 'Coordinate with Zurich Authorities', reason: 'Attempt to locate Dr. Chen upon arrival in Zurich.', relatedHypothesisId: 'H-01', relatedEvidenceId: 'E-006', priority: 'High', status: 'Pending' }
+];
+// --- Geographic Case Map mock data ---
+export const mockGeoCases: GeoCase[] = [
+  { id: 'CASE-2026-001', title: 'Operation Midnight Silence', crimeType: 'Cybercrime', location: 'Bandra Kurla Complex, Mumbai', latitude: 19.0669, longitude: 72.8679, status: 'Investigating', severity: 'Critical', evidenceCount: 10, suspectCount: 2, witnessCount: 3 },
+  { id: 'CASE-2026-002', title: 'Andheri Warehouse Theft', crimeType: 'Theft', location: 'Andheri East, Mumbai', latitude: 19.1136, longitude: 72.8697, status: 'Active', severity: 'Medium', evidenceCount: 6, suspectCount: 1, witnessCount: 2 },
+  { id: 'CASE-2026-003', title: 'Thane Jewellery Robbery', crimeType: 'Robbery', location: 'Thane West', latitude: 19.2183, longitude: 72.9781, status: 'Active', severity: 'High', evidenceCount: 8, suspectCount: 3, witnessCount: 4 },
+  { id: 'CASE-2026-004', title: 'Navi Mumbai Port Fraud', crimeType: 'Fraud', location: 'Navi Mumbai', latitude: 19.0330, longitude: 73.0297, status: 'Investigating', severity: 'High', evidenceCount: 14, suspectCount: 2, witnessCount: 1 },
+  { id: 'CASE-2026-005', title: 'Koregaon Park Assault', crimeType: 'Other', location: 'Koregaon Park, Pune', latitude: 18.5362, longitude: 73.8938, status: 'Solved', severity: 'Medium', evidenceCount: 5, suspectCount: 1, witnessCount: 3 },
+  { id: 'CASE-2026-006', title: 'Nashik Vineyard Missing Worker', crimeType: 'Missing Person', location: 'Nashik Road, Nashik', latitude: 20.0110, longitude: 73.7903, status: 'Active', severity: 'High', evidenceCount: 4, suspectCount: 0, witnessCount: 5 },
+  { id: 'CASE-2026-007', title: 'Whitefield Tech Park Breach', crimeType: 'Cybercrime', location: 'Whitefield, Bengaluru', latitude: 12.9698, longitude: 77.7500, status: 'Investigating', severity: 'Critical', evidenceCount: 11, suspectCount: 1, witnessCount: 0 },
+  { id: 'CASE-2026-008', title: 'Indiranagar ATM Fraud Ring', crimeType: 'Fraud', location: 'Indiranagar, Bengaluru', latitude: 12.9716, longitude: 77.6412, status: 'Active', severity: 'Medium', evidenceCount: 7, suspectCount: 4, witnessCount: 2 },
+  { id: 'CASE-2026-009', title: 'Mysuru Palace Road Burglary', crimeType: 'Theft', location: 'Mysuru', latitude: 12.2958, longitude: 76.6394, status: 'Solved', severity: 'Low', evidenceCount: 3, suspectCount: 1, witnessCount: 1 },
+  { id: 'CASE-2026-010', title: 'Connaught Place Homicide', crimeType: 'Murder', location: 'Connaught Place, Delhi', latitude: 28.6315, longitude: 77.2167, status: 'Investigating', severity: 'Critical', evidenceCount: 16, suspectCount: 2, witnessCount: 6 },
+  { id: 'CASE-2026-011', title: 'Karol Bagh Chain Snatching', crimeType: 'Robbery', location: 'Karol Bagh, Delhi', latitude: 28.6519, longitude: 77.1909, status: 'Active', severity: 'Low', evidenceCount: 2, suspectCount: 1, witnessCount: 2 },
+  { id: 'CASE-2026-012', title: 'Cyber City Data Leak', crimeType: 'Cybercrime', location: 'Cyber City, Gurugram', latitude: 28.4949, longitude: 77.0890, status: 'Investigating', severity: 'High', evidenceCount: 9, suspectCount: 1, witnessCount: 0 },
+  { id: 'CASE-2026-013', title: 'Noida Sector 62 Missing Teen', crimeType: 'Missing Person', location: 'Sector 62, Noida', latitude: 28.6280, longitude: 77.3649, status: 'Active', severity: 'Critical', evidenceCount: 5, suspectCount: 0, witnessCount: 4 },
+  { id: 'CASE-2026-014', title: 'HITEC City Ponzi Scheme', crimeType: 'Fraud', location: 'HITEC City, Hyderabad', latitude: 17.4483, longitude: 78.3915, status: 'Investigating', severity: 'High', evidenceCount: 20, suspectCount: 5, witnessCount: 8 },
+  { id: 'CASE-2026-015', title: 'Charminar Market Pickpocketing', crimeType: 'Theft', location: 'Charminar, Hyderabad', latitude: 17.3616, longitude: 78.4747, status: 'Closed', severity: 'Low', evidenceCount: 1, suspectCount: 1, witnessCount: 1 },
+  { id: 'CASE-2026-016', title: 'T Nagar Bank Robbery', crimeType: 'Robbery', location: 'T Nagar, Chennai', latitude: 13.0418, longitude: 80.2341, status: 'Solved', severity: 'High', evidenceCount: 12, suspectCount: 3, witnessCount: 7 },
+  { id: 'CASE-2026-017', title: 'Park Street Homicide', crimeType: 'Murder', location: 'Park Street, Kolkata', latitude: 22.5535, longitude: 88.3524, status: 'Investigating', severity: 'Critical', evidenceCount: 15, suspectCount: 1, witnessCount: 3 },
+  { id: 'CASE-2026-018', title: 'SG Highway Corporate Fraud', crimeType: 'Fraud', location: 'SG Highway, Ahmedabad', latitude: 23.0225, longitude: 72.5090, status: 'Active', severity: 'Medium', evidenceCount: 10, suspectCount: 2, witnessCount: 1 },
+  { id: 'CASE-2026-019', title: 'Pink City Heritage Theft', crimeType: 'Theft', location: 'Jaipur', latitude: 26.9124, longitude: 75.7873, status: 'Solved', severity: 'Medium', evidenceCount: 6, suspectCount: 2, witnessCount: 2 },
+  { id: 'CASE-2026-020', title: 'Hazratganj Missing Vendor', crimeType: 'Missing Person', location: 'Hazratganj, Lucknow', latitude: 26.8467, longitude: 80.9462, status: 'Active', severity: 'Medium', evidenceCount: 3, suspectCount: 0, witnessCount: 2 },
+  { id: 'CASE-2026-021', title: 'Surat Diamond Exchange Robbery', crimeType: 'Robbery', location: 'Varachha, Surat', latitude: 21.2088, longitude: 72.8493, status: 'Investigating', severity: 'Critical', evidenceCount: 13, suspectCount: 4, witnessCount: 5 },
+  { id: 'CASE-2026-022', title: 'Marine Drive Cybercafe Fraud', crimeType: 'Cybercrime', location: 'Marine Drive, Kochi', latitude: 9.9658, longitude: 76.2822, status: 'Active', severity: 'Low', evidenceCount: 4, suspectCount: 1, witnessCount: 0 },
+  { id: 'CASE-2026-023', title: 'Sector 17 Market Robbery', crimeType: 'Robbery', location: 'Sector 17, Chandigarh', latitude: 30.7410, longitude: 76.7822, status: 'Closed', severity: 'Low', evidenceCount: 5, suspectCount: 2, witnessCount: 3 },
+  { id: 'CASE-2026-024', title: 'Coimbatore Textile Mill Fraud', crimeType: 'Fraud', location: 'Coimbatore', latitude: 11.0168, longitude: 76.9558, status: 'Investigating', severity: 'Medium', evidenceCount: 8, suspectCount: 2, witnessCount: 1 },
 ];

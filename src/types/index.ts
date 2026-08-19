@@ -67,7 +67,52 @@ export interface Hypothesis {
   contradictingEvidenceIds: string[];
   relatedEntityIds: string[];
 }
+// --- Geographic Case Map ---
 
+export type CrimeType =
+  'Murder' |
+  'Theft' |
+  'Robbery' |
+  'Cybercrime' |
+  'Missing Person' |
+  'Fraud' |
+  'Other';
+
+export type GeoCaseStatus =
+  'Active' |
+  'Investigating' |
+  'Solved' |
+  'Closed';
+
+export type Severity =
+  'Low' |
+  'Medium' |
+  'High' |
+  'Critical';
+
+export interface GeoCase {
+  id: string;
+  title: string;
+  crimeType: CrimeType;
+  location: string;
+  latitude: number;
+  longitude: number;
+  status: GeoCaseStatus;
+  severity: Severity;
+  evidenceCount: number;
+  suspectCount: number;
+  witnessCount: number;
+}
+
+export type GeoEntityType =
+  | 'Case'
+  | 'Crime Scene'
+  | 'Evidence Location'
+  | 'Witness Location'
+  | 'Suspect Last Seen'
+  | 'CCTV Location'
+  | 'Vehicle Location';
+  
 export interface InvestigationTask {
   id: string;
   caseId: string;
