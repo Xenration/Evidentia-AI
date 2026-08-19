@@ -1,5 +1,6 @@
-import { mockCases, mockEvidence, mockTimeline, mockEntities, mockHypotheses, mockContradictions, mockInvestigationTasks } from '../mock-data';
-import { Case, Evidence, TimelineEvent, Entity, Hypothesis, Contradiction, InvestigationTask } from '../types';
+import { mockCases, mockEvidence, mockTimeline, mockEntities, mockHypotheses, mockContradictions, mockInvestigationTasks, mockGeoCases } from '../mock-data';
+
+import { Case, Evidence, TimelineEvent, Entity, Hypothesis, Contradiction, InvestigationTask, GeoCase } from '../types';
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -57,5 +58,12 @@ export const investigationService = {
   getTasksForCase: async (caseId: string): Promise<InvestigationTask[]> => {
     await delay(400);
     return mockInvestigationTasks.filter(t => t.caseId === caseId);
+  }
+};
+// Backs the Geographic Case Map
+export const geoCaseService = {
+  getGeoCases: async (): Promise<GeoCase[]> => {
+    await delay(500);
+    return mockGeoCases;
   }
 };

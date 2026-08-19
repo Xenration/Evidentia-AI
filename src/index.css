@@ -55,3 +55,78 @@
 ::-webkit-scrollbar-thumb:hover {
   background-color: var(--color-secondary);
 }
+
+/* --- Geographic Case Map (Leaflet) theming --- */
+
+.evidentia-map {
+  background: var(--color-background);
+  font-family: var(--font-sans);
+}
+
+.evidentia-map-tiles {
+  filter: brightness(0.6) invert(1) contrast(90%) hue-rotate(180deg) saturate(0.25) brightness(0.85);
+}
+
+.evidentia-case-marker,
+.evidentia-cluster-marker {
+  background: transparent;
+  border: none;
+}
+
+.leaflet-popup-content-wrapper {
+  background: var(--color-surface);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: 0.75rem;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+}
+
+.leaflet-popup-content {
+  margin: 0.75rem;
+}
+
+.leaflet-popup-tip {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  box-shadow: none;
+}
+
+.leaflet-popup-close-button {
+  color: var(--color-text-muted) !important;
+  font-size: 18px !important;
+  padding: 6px 8px 0 0 !important;
+}
+
+.leaflet-popup-close-button:hover {
+  color: var(--color-text) !important;
+}
+
+.leaflet-container a.leaflet-popup-close-button:focus {
+  outline: none;
+}
+
+.leaflet-container {
+  font-family: var(--font-sans);
+}
+
+.leaflet-control-attribution {
+  background: rgba(9, 14, 23, 0.7) !important;
+  color: var(--color-text-muted) !important;
+  backdrop-filter: blur(4px);
+}
+
+.leaflet-control-attribution a {
+  color: var(--color-text-muted) !important;
+}
+
+@keyframes evidentia-pulse {
+  0% {
+    transform: scale(0.6);
+    opacity: 1;
+  }
+
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
