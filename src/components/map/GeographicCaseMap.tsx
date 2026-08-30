@@ -15,6 +15,15 @@ import { MapFilters, MapFilterState } from './MapFilters';
 const INDIA_CENTER: [number, number] = [22.9734, 78.6569];
 const INDIA_DEFAULT_ZOOM = 5;
 
+interface GeographicCaseMapProps {
+  /** When set, the map filters to only this case and adjusts the view. */
+  caseId?: string;
+  /** Optional class name for the outer wrapper. */
+  className?: string;
+  /** Whether this map is embedded inside a case workspace (changes header behaviour). */
+  embedded?: boolean;
+}
+
 function ClusteredMarkers({ cases }: { cases: GeoCase[] }) {
   const clusters = useMarkerClusters(cases);
   return (
@@ -38,7 +47,7 @@ function MapResizeHandler({ trigger }: { trigger: unknown }) {
   return null;
 }
 
-export function GeographicCaseMap() {
+export function GeographicCaseMap({ caseId, className, embedded }: GeographicCaseMapProps) {
   const [allCases, setAllCases] = useState<GeoCase[]>([]);
   const [loading, setLoading] = useState(true);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -57,9 +66,27 @@ export function GeographicCaseMap() {
     });
   }, []);
 
+  // When a caseId is provided, pre-filter to just that case.
+  const caseScopedCases = useMemo(() => {
+    if (!caseId) return allCases;
+    return allCases.filter(c => c.id === caseId);
+  }, [allCases, caseId]);
+
+  // Derive map center/zoom for single-case view.
+  const mapDefaults = useMemo(() => {
+    if (caseId && caseScopedCases.length > 0) {
+      const c = caseScopedCases[0];
+      return {
+        center: [c.latitude, c.longitude] as [number, number],
+        zoom: 12,
+      };
+    }
+    return { center: INDIA_CENTER, zoom: INDIA_DEFAULT_ZOOM };
+  }, [caseId, caseScopedCases]);
+
   const filteredCases = useMemo(() => {
     const q = filters.search.trim().toLowerCase();
-    return allCases.filter(c => {
+    return caseScopedCases.filter(c => {
       if (filters.status !== 'All' && c.status !== filters.status) return false;
       if (filters.crimeType !== 'All' && c.crimeType !== filters.crimeType) return false;
       if (filters.severity !== 'All' && c.severity !== filters.severity) return false;
@@ -69,7 +96,7 @@ export function GeographicCaseMap() {
       }
       return true;
     });
-  }, [allCases, filters]);
+  }, [caseScopedCases, filters]);
 
   const stats = useMemo(() => ({
     total: filteredCases.length,
@@ -85,22 +112,31 @@ export function GeographicCaseMap() {
           onClick={() => setIsExpanded(false)}
         />
       )}
-      <Card className={cn(isExpanded && 'fixed inset-4 z-50 flex flex-col')}>
-        <CardHeader className="flex-col sm:flex-row items-start sm:items-center gap-3">
+      <Card className={cn(
+        isExpanded && 'fixed inset-4 z-50 flex flex-col',
+        embedded && 'flex-1 flex flex-col min-h-0',
+        className,
+      )}>
+        <CardHeader className={cn(
+          'flex-col sm:flex-row items-start sm:items-center gap-3',
+          embedded && 'py-3',
+        )}>
           <CardTitle className="flex items-center gap-2">
             <MapPinned className="w-5 h-5 text-primary" />
-            Geographic Case Map
+            {embedded ? 'Geospatial Intelligence' : 'Geographic Case Map'}
           </CardTitle>
-          <button
-            onClick={() => setFiltersOpen(o => !o)}
-            className={cn(
-              'flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors shrink-0',
-              filtersOpen ? 'bg-primary/10 text-primary border-primary/30' : 'bg-surface border-border text-text-muted hover:text-white'
-            )}
-          >
-            <Filter className="w-3.5 h-3.5" /> Filters
-            <ChevronDown className={cn('w-3.5 h-3.5 transition-transform', filtersOpen && 'rotate-180')} />
-          </button>
+          {!embedded && (
+            <button
+              onClick={() => setFiltersOpen(o => !o)}
+              className={cn(
+                'flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors shrink-0',
+                filtersOpen ? 'bg-primary/10 text-primary border-primary/30' : 'bg-surface border-border text-text-muted hover:text-white'
+              )}
+            >
+              <Filter className="w-3.5 h-3.5" /> Filters
+              <ChevronDown className={cn('w-3.5 h-3.5 transition-transform', filtersOpen && 'rotate-180')} />
+            </button>
+          )}
         </CardHeader>
 
         {filtersOpen && (
@@ -109,8 +145,8 @@ export function GeographicCaseMap() {
           </div>
         )}
 
-        <CardContent className={cn('p-0 flex flex-col', isExpanded && 'flex-1 min-h-0')}>
-          <div className={cn('relative w-full', isExpanded ? 'flex-1 min-h-0' : 'h-[420px] md:h-[480px]')}>
+        <CardContent className={cn('p-0 flex flex-col', (isExpanded || embedded) && 'flex-1 min-h-0')}>
+          <div className={cn('relative w-full', (isExpanded || embedded) ? 'flex-1 min-h-0' : 'h-[420px] md:h-[480px]')}>
             {loading ? (
               <div className="absolute inset-0 flex items-center justify-center bg-[#0a1526]">
                 <div className="text-center animate-pulse">
@@ -120,8 +156,8 @@ export function GeographicCaseMap() {
               </div>
             ) : (
               <MapContainer
-                center={INDIA_CENTER}
-                zoom={INDIA_DEFAULT_ZOOM}
+                center={mapDefaults.center}
+                zoom={mapDefaults.zoom}
                 zoomControl={false}
                 className="w-full h-full evidentia-map"
                 scrollWheelZoom

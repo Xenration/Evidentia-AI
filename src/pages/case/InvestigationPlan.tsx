@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { investigationService } from '../../services';
 import { InvestigationTask } from '../../types';
 import { Card, CardContent } from '../../components/ui/Card';
-import { CheckSquare, AlertTriangle, Lightbulb, Clock, CheckCircle2, PlayCircle } from 'lucide-react';
+import { AlertTriangle, Lightbulb, Clock, CheckCircle2, PlayCircle } from 'lucide-react';
 import { cn } from '../../utils';
 
 export function InvestigationPlan() {

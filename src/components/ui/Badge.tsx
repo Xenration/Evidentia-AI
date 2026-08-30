@@ -7,7 +7,7 @@ interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
 
 export function Badge({ className, variant = 'default', children, ...props }: BadgeProps) {
   const variants = {
-    default: 'bg-surfaceHover text-text',
+    default: 'bg-surface-hover text-text border-border',
     success: 'bg-success/20 text-success border-success/30',
     warning: 'bg-warning/20 text-warning border-warning/30',
     danger: 'bg-danger/20 text-danger border-danger/30',
@@ -15,7 +15,7 @@ export function Badge({ className, variant = 'default', children, ...props }: Ba
   };
 
   return (
-    <span className={cn("px-2.5 py-0.5 rounded-full text-xs font-medium border", variants[variant], className)} {...props}>
+    <span className={cn('px-2.5 py-0.5 rounded-full text-xs font-medium border', variants[variant], className)} {...props}>
       {children}
     </span>
   );

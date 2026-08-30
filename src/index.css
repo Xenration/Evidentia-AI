@@ -130,3 +130,175 @@
     opacity: 0;
   }
 }
+
+/* ============================================================ */
+/* Investigation Board — Cork / Wood theme                      */
+/* ============================================================ */
+
+/* Wooden frame around the board */
+.board-frame {
+  background:
+    linear-gradient(145deg,
+      #5a4232 0%,
+      #3d2b1f 15%,
+      #4a3728 40%,
+      #2c1e14 70%,
+      #3d2b1f 100%
+    );
+  padding: 10px;
+  box-shadow:
+    inset 0 1px 2px rgba(255,255,255,0.06),
+    inset 0 -1px 3px rgba(0,0,0,0.4),
+    0 8px 32px rgba(0,0,0,0.5),
+    0 2px 8px rgba(0,0,0,0.3);
+}
+
+/* Cork board surface */
+.board-surface {
+  background-color: #c4a882;
+  background-image:
+    radial-gradient(ellipse at 15% 25%, rgba(139,109,71,0.12) 0%, transparent 50%),
+    radial-gradient(ellipse at 85% 75%, rgba(139,109,71,0.08) 0%, transparent 45%),
+    radial-gradient(ellipse at 50% 50%, rgba(255,255,255,0.03) 0%, transparent 60%),
+    radial-gradient(ellipse at 30% 70%, rgba(0,0,0,0.04) 0%, transparent 40%),
+    radial-gradient(ellipse at 70% 20%, rgba(0,0,0,0.03) 0%, transparent 35%),
+    radial-gradient(ellipse at 50% 10%, rgba(200,170,130,0.1) 0%, transparent 50%),
+    radial-gradient(ellipse at 90% 40%, rgba(100,70,40,0.06) 0%, transparent 40%);
+  box-shadow:
+    inset 0 0 30px rgba(0,0,0,0.12),
+    inset 0 0 4px rgba(0,0,0,0.08);
+  border-radius: 2px;
+  position: relative;
+}
+
+/* Red push pin */
+.board-pin {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 32%, #ff5555, #cc0000 55%, #880000);
+  box-shadow:
+    0 2px 5px rgba(0,0,0,0.45),
+    0 1px 2px rgba(0,0,0,0.3),
+    inset 0 1px 1px rgba(255,255,255,0.25);
+  position: absolute;
+  top: -7px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+}
+
+/* Card positioning wrapper */
+.board-card {
+  position: absolute;
+  cursor: pointer;
+  user-select: none;
+}
+
+/* Card inner body */
+.board-card-inner {
+  border-radius: 3px;
+  box-shadow:
+    0 2px 8px rgba(0,0,0,0.18),
+    0 1px 3px rgba(0,0,0,0.12);
+ overflow: hidden;
+  transition: box-shadow 0.2s ease;
+  position: relative;
+}
+
+.board-card-hover .board-card-inner {
+  box-shadow:
+    0 4px 16px rgba(0,0,0,0.28),
+    0 2px 6px rgba(0,0,0,0.16);
+}
+
+.board-card-selected .board-card-inner {
+  box-shadow:
+    0 0 0 2px rgba(14,165,233,0.6),
+    0 6px 20px rgba(0,0,0,0.3),
+    0 2px 8px rgba(0,0,0,0.2);
+}
+
+.board-card-dragging .board-card-inner {
+  box-shadow:
+    0 12px 40px rgba(0,0,0,0.4),
+    0 4px 12px rgba(0,0,0,0.25);
+  transition: none;
+}
+
+/* Accent bar at top of card */
+.board-card-accent {
+  height: 3px;
+  width: 100%;
+}
+
+/* Tape strip for timeline cards */
+.board-tape {
+  position: absolute;
+  top: -5px;
+  left: 50%;
+  transform: translateX(-50%) rotate(-1.5deg);
+  width: 44px;
+  height: 13px;
+  background: rgba(255,235,180,0.6);
+  border: 1px solid rgba(200,180,120,0.25);
+  z-index: 4;
+  pointer-events: none;
+}
+
+/* Timeline cards: subtle ruled-paper lines */
+.board-card-timeline .board-card-inner {
+  background-image:
+    repeating-linear-gradient(
+      transparent,
+      transparent 17px,
+      rgba(0,0,0,0.04) 17px,
+      rgba(0,0,0,0.04) 18px
+    );
+  background-size: 100% 18px;
+}
+
+/* Evidence cards: subtle paper texture */
+.board-card-evidence .board-card-inner {
+  background-image:
+    linear-gradient(rgba(0,0,0,0.01) 1px, transparent 1px);
+  background-size: 100% 20px;
+}
+
+/* ============================================================ */
+/* Investigation Board V2 — Fullscreen                             */
+/* ============================================================ */
+
+.board-fullscreen-wrapper {
+  transition: none;
+}
+
+.board-fullscreen-wrapper:fullscreen {
+  width: 100vw;
+  height: 100vh;
+  padding: 12px;
+  background: var(--color-background);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.board-fullscreen-wrapper:-webkit-full-screen {
+  width: 100vw;
+  height: 100vh;
+  padding: 12px;
+  background: var(--color-background);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.board-fullscreen-wrapper:fullscreen .board-frame {
+  border-radius: 8px;
+}
+
+.board-fullscreen-wrapper:-webkit-full-screen .board-frame {
+  border-radius: 8px;
+}

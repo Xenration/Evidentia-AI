@@ -1,14 +1,22 @@
 import { useParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { caseService, evidenceService, timelineService, contradictionService, hypothesisService, investigationService } from '../../services';
-import { Case, Evidence, TimelineEvent, Contradiction, Hypothesis, InvestigationTask } from '../../types';
+import { caseService, evidenceService, timelineService, contradictionService, hypothesisService, investigationService, entityService } from '../../services';
+import { Case, Evidence, TimelineEvent, Contradiction, Hypothesis, InvestigationTask, Entity } from '../../types';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { FileText, Clock, Users, AlertTriangle, Lightbulb, CheckSquare, ArrowRight } from 'lucide-react';
 import { cn } from '../../utils';
 
 export function CaseOverview() {
   const { caseId } = useParams();
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<{
+    currentCase: Case | undefined;
+    evidence: Evidence[];
+    timeline: TimelineEvent[];
+    contradictions: Contradiction[];
+    hypotheses: Hypothesis[];
+    tasks: InvestigationTask[];
+    entities: Entity[];
+  } | null>(null);
 
   useEffect(() => {
     if (!caseId) return;
@@ -18,9 +26,10 @@ export function CaseOverview() {
       timelineService.getTimelineForCase(caseId),
       contradictionService.getContradictionsForCase(caseId),
       hypothesisService.getHypothesesForCase(caseId),
-      investigationService.getTasksForCase(caseId)
-    ]).then(([c, e, t, con, h, tasks]) => {
-      setData({ currentCase: c, evidence: e, timeline: t, contradictions: con, hypotheses: h, tasks });
+      investigationService.getTasksForCase(caseId),
+      entityService.getEntitiesForCase(caseId),
+    ]).then(([c, e, t, con, h, tasks, ent]) => {
+      setData({ currentCase: c, evidence: e, timeline: t, contradictions: con, hypotheses: h, tasks, entities: ent });
     });
   }, [caseId]);
 
@@ -29,10 +38,10 @@ export function CaseOverview() {
   const stats = [
     { label: 'Evidence', value: data.evidence.length, icon: FileText, color: 'text-blue-500' },
     { label: 'Timeline Events', value: data.timeline.length, icon: Clock, color: 'text-purple-500' },
-    { label: 'Entities Found', value: 8, icon: Users, color: 'text-indigo-500' }, // Hardcoded for mockup
+    { label: 'Entities Found', value: data.entities.length, icon: Users, color: 'text-indigo-500' },
     { label: 'Contradictions', value: data.contradictions.length, icon: AlertTriangle, color: 'text-red-500' },
     { label: 'Hypotheses', value: data.hypotheses.length, icon: Lightbulb, color: 'text-yellow-500' },
-    { label: 'Open Tasks', value: data.tasks.filter((t: any) => t.status !== 'Completed').length, icon: CheckSquare, color: 'text-green-500' }
+    { label: 'Open Tasks', value: data.tasks.filter((t: InvestigationTask) => t.status !== 'Completed').length, icon: CheckSquare, color: 'text-green-500' }
   ];
 
   return (
