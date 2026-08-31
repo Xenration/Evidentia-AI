@@ -124,3 +124,38 @@ export interface InvestigationTask {
   priority: 'High' | 'Medium' | 'Low';
   status: 'Pending' | 'In Progress' | 'Completed';
 }
+
+// --- Investigation Board / Knowledge Graph ---
+
+export type GraphNodeType =
+  | 'Person'
+  | 'Organization'
+  | 'Location'
+  | 'Vehicle'
+  | 'Event'
+  | 'Other'
+  | 'Evidence'
+  | 'TimelineEvent'
+  | 'Hypothesis';
+
+export interface InvestigationNode {
+  id: string;
+  label: string;
+  type: GraphNodeType;
+}
+
+export type EdgeType =
+  | 'sourced_from'
+  | 'co_mentioned'
+  | 'involves'
+  | 'references'
+  | 'supports'
+  | 'contradicts';
+
+export interface InvestigationEdge {
+  id: string;
+  source: string;
+  target: string;
+  label: string;
+  type: EdgeType;
+}
