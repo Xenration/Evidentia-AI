@@ -1,53 +1,51 @@
-# Logs
-logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
-
-# Node
-node_modules
-dist
-dist-ssr
+# ==============================
+# Node.js & Frontend
+# ==============================
+node_modules/
+dist/
+dist-ssr/
 *.local
 
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-
-# Environment variables (SECRETS - NEVER push)
-.env
-.env.local
-.env.production
-*.env
-
-# Python
+# ==============================
+# Python & FastAPI
+# ==============================
 venv/
 env/
+ENV/
 __pycache__/
 *.py[cod]
 *.egg-info/
 .pytest_cache/
 
-# Database
+# ==============================
+# Environment Variables (SECRETS)
+# ==============================
+.env
+.env.local
+.env.production
+*.env
+
+# ==============================
+# Databases & Uploads (Local Only)
+# ==============================
 *.db
 *.sqlite
 *.sqlite3
-
-# Uploaded evidence files (large binaries)
 backend/uploads/*
 !backend/uploads/.gitkeep
 
-# Local/temporary project artifacts
+# ==============================
+# Editor & OS Files
+# ==============================
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# ==============================
+# Local/Temporary Artifacts
+# ==============================
 download/
 evidentia-v2/
 evidentia-work/
