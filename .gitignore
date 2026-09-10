@@ -7,6 +7,7 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Node
 node_modules
 dist
 dist-ssr
@@ -22,10 +23,31 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Environment variables (SECRETS - NEVER push)
 .env
+.env.local
+.env.production
+*.env
+
+# Python
+venv/
+env/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Uploaded evidence files (large binaries)
+backend/uploads/*
+!backend/uploads/.gitkeep
 
 # Local/temporary project artifacts
 download/
-evidentia/
 evidentia-v2/
 evidentia-work/

@@ -1,97 +1,237 @@
+// src/pages/case/EvidenceList.tsx
+import { useEffect, useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { 
+  Plus, Search, Filter, File, Image, Video, Music, FileText,
+  CheckCircle, Clock, AlertCircle, Loader2, Upload
+} from 'lucide-react';
 import { evidenceService } from '../../services';
 import { Evidence } from '../../types';
-import { Card } from '../../components/ui/Card';
-import { FileText, Image, Video, Music, Upload, Search, Filter, ArrowRight } from 'lucide-react';
-import { cn } from '../../utils';
+
+const statusIcons = {
+  'Uploaded': <Clock className="w-4 h-4 text-yellow-400" />,
+  'Queued': <Clock className="w-4 h-4 text-blue-400" />,
+  'Processing': <Loader2 className="w-4 h-4 text-blue-400 animate-spin" />,
+  'Analyzed': <CheckCircle className="w-4 h-4 text-green-400" />,
+  'Failed': <AlertCircle className="w-4 h-4 text-red-400" />
+};
+
+const fileTypeIcons = {
+  'Image': <Image className="w-4 h-4" />,
+  'Video': <Video className="w-4 h-4" />,
+  'Audio': <Music className="w-4 h-4" />,
+  'Document': <FileText className="w-4 h-4" />,
+  'Other': <File className="w-4 h-4" />
+};
 
 export function EvidenceList() {
-  const { caseId } = useParams();
+  const { caseId } = useParams<{ caseId: string }>();
   const [evidence, setEvidence] = useState<Evidence[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [analyzing, setAnalyzing] = useState<number | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const fetchEvidence = async () => {
+    if (!caseId) return;
+    try {
+      setLoading(true);
+      const data = await evidenceService.getEvidenceForCase(caseId);
+      setEvidence(data);
+    } catch (error) {
+      console.error('Failed to fetch evidence:', error);
+      alert('Failed to load evidence. Make sure the backend is running.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    if (caseId) {
-      evidenceService.getEvidenceForCase(caseId).then(setEvidence);
-    }
+    fetchEvidence();
   }, [caseId]);
 
-  const getIcon = (type: string) => {
-    switch (type) {
-      case 'Document': return <FileText className="w-5 h-5 text-blue-400" />;
-      case 'Image': return <Image className="w-5 h-5 text-purple-400" />;
-      case 'Video': return <Video className="w-5 h-5 text-red-400" />;
-      case 'Audio': return <Music className="w-5 h-5 text-green-400" />;
-      default: return <FileText className="w-5 h-5 text-text-muted" />;
+  const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !caseId) return;
+
+    setUploading(true);
+    try {
+      await evidenceService.uploadEvidence(caseId, file);
+      alert('File uploaded successfully!');
+      fetchEvidence();
+    } catch (error) {
+      console.error('Upload failed:', error);
+      alert('Upload failed: ' + (error as Error).message);
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Analyzed': return 'text-green-400 bg-green-400/10 border-green-400/20';
-      case 'Processing': return 'text-blue-400 bg-blue-400/10 border-blue-400/20 animate-pulse';
-      case 'Queued': return 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20';
-      case 'Uploaded': return 'text-text-muted bg-surface-hover border-border';
-      default: return 'text-red-400 bg-red-400/10 border-red-400/20';
+  const handleAnalyze = async (evidenceId: number) => {
+    setAnalyzing(evidenceId);
+    try {
+      await evidenceService.analyzeEvidence(evidenceId.toString());
+      alert('Analysis started! Check back in a moment.');
+      setTimeout(fetchEvidence, 2000);
+    } catch (error) {
+      console.error('Analysis failed:', error);
+      alert('Analysis failed: ' + (error as Error).message);
+    } finally {
+      setAnalyzing(null);
     }
   };
+
+  const handleDelete = async (evidenceId: number, fileName: string) => {
+    if (!confirm(`Delete "${fileName}"? This cannot be undone.`)) return;
+
+    try {
+      await evidenceService.deleteEvidence(evidenceId.toString());
+      alert('Evidence deleted successfully.');
+      fetchEvidence();
+    } catch (error) {
+      console.error('Delete failed:', error);
+      alert('Delete failed: ' + (error as Error).message);
+    }
+  };
+
+  const filteredEvidence = evidence.filter(e =>
+    e.file_name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="p-6">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-white mb-1">Evidence Management</h1>
-          <p className="text-sm text-text-muted">Upload and manage case files, documents, and media.</p>
+          <h1 className="text-2xl font-bold">Evidence</h1>
+          <p className="text-text-muted text-sm">
+            {evidence.length} items uploaded
+          </p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover transition-colors font-medium text-sm shadow-lg shadow-primary/20">
-          <Upload className="w-4 h-4" />
-          Upload Evidence
-        </button>
-      </div>
-
-      <Card className="p-4 flex flex-col sm:flex-row gap-4 items-center justify-between">
-        <div className="relative w-full max-w-md">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
-          <input 
-            type="text" 
-            placeholder="Search evidence..." 
-            className="w-full pl-9 pr-4 py-2 bg-surface border border-border rounded-lg text-sm focus:outline-none focus:border-primary/50 text-white transition-colors"
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 rounded-lg text-sm font-semibold transition-colors"
+          >
+            {uploading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Upload className="w-4 h-4" />
+            )}
+            {uploading ? 'Uploading...' : 'Upload Evidence'}
+          </button>
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleUpload}
+            style={{ display: 'none' }}
+            multiple={false}
           />
         </div>
-        <div className="flex gap-2 w-full sm:w-auto">
-          <button className="flex items-center gap-2 px-4 py-2 bg-surface border border-border rounded-lg text-sm text-text-muted hover:text-white hover:border-text-muted transition-colors">
-            <Filter className="w-4 h-4" />
-            Filters
-          </button>
-        </div>
-      </Card>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {evidence.map((item) => (
-          <Link key={item.id} to={`/cases/${caseId}/evidence/${item.id}`}>
-            <Card className="p-5 hover:border-primary/50 transition-colors cursor-pointer group h-full flex flex-col">
-              <div className="flex justify-between items-start mb-4">
-                <div className="w-10 h-10 rounded-lg bg-surface flex items-center justify-center border border-border shadow-inner">
-                  {getIcon(item.fileType)}
-                </div>
-                <span className={cn("px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider border", getStatusColor(item.processingStatus))}>
-                  {item.processingStatus}
-                </span>
-              </div>
-              
-              <h3 className="text-white font-medium truncate mb-1 group-hover:text-primary transition-colors" title={item.fileName}>
-                {item.fileName}
-              </h3>
-              <div className="flex items-center justify-between text-xs text-text-muted mt-auto pt-4 border-t border-border/50">
-                <span>{item.id}</span>
-                <span className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity text-primary">
-                  Analyze <ArrowRight className="w-3 h-3" />
-                </span>
-              </div>
-            </Card>
-          </Link>
-        ))}
       </div>
+
+      {/* Search */}
+      <div className="relative mb-6">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+        <input
+          type="text"
+          placeholder="Search evidence..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full pl-10 pr-4 py-2 bg-[#111d2d] border border-[#294057] rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500/50 text-sm"
+        />
+      </div>
+
+      {/* Loading */}
+      {loading && (
+        <div className="flex justify-center items-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-cyan-500 border-t-transparent"></div>
+        </div>
+      )}
+
+      {/* Empty state */}
+      {!loading && evidence.length === 0 && (
+        <div className="text-center py-12 border border-dashed border-[#294057] rounded-lg">
+          <File className="w-12 h-12 text-text-muted mx-auto mb-3" />
+          <p className="text-text-muted">No evidence uploaded yet.</p>
+          <p className="text-text-muted text-sm">Click "Upload Evidence" to add files.</p>
+        </div>
+      )}
+
+      {/* Evidence Grid */}
+      {!loading && evidence.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredEvidence.map((item) => (
+            <div
+              key={item.id}
+              className="group bg-[#111d2d] border border-[#294057] hover:border-cyan-500/30 rounded-lg p-5 transition-all hover:shadow-lg hover:shadow-cyan-500/5"
+            >
+              {/* File Icon + Name */}
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-lg bg-cyan-500/10 flex items-center justify-center flex-shrink-0">
+                    {fileTypeIcons[item.file_type as keyof typeof fileTypeIcons] || <File className="w-5 h-5" />}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-medium truncate" title={item.file_name}>
+                      {item.file_name}
+                    </p>
+                    <p className="text-xs text-text-muted">
+                      {((item.file_size || 0) / 1024).toFixed(1)} KB • {item.file_type || 'Unknown'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Status */}
+              <div className="flex items-center gap-2 text-sm mb-3">
+                {statusIcons[item.processing_status as keyof typeof statusIcons] || <Clock className="w-4 h-4" />}
+                <span className={`text-sm ${
+                  item.processing_status === 'Analyzed' ? 'text-green-400' :
+                  item.processing_status === 'Failed' ? 'text-red-400' :
+                  item.processing_status === 'Processing' ? 'text-blue-400' :
+                  'text-text-muted'
+                }`}>
+                  {item.processing_status || 'Uploaded'}
+                </span>
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center gap-2">
+                <Link
+                  to={`/cases/${caseId}/evidence/${item.id}`}
+                  className="flex-1 text-center px-3 py-1.5 border border-[#294057] hover:border-cyan-500/50 rounded-lg text-xs font-medium transition-colors"
+                >
+                  View Details
+                </Link>
+                {item.processing_status !== 'Processing' && (
+                  <button
+                    onClick={() => handleAnalyze(item.id)}
+                    disabled={analyzing === item.id}
+                    className="px-3 py-1.5 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
+                  >
+                    {analyzing === item.id ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      'Analyze'
+                    )}
+                  </button>
+                )}
+                <button
+                  onClick={() => handleDelete(item.id, item.file_name)}
+                  className="px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg text-xs font-medium transition-colors"
+                  title="Delete evidence"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
