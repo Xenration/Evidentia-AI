@@ -1,0 +1,51 @@
+# ==============================
+# Node.js & Frontend
+# ==============================
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# ==============================
+# Python & FastAPI
+# ==============================
+venv/
+env/
+ENV/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# ==============================
+# Environment Variables (SECRETS)
+# ==============================
+.env
+.env.local
+.env.production
+*.env
+
+# ==============================
+# Databases & Uploads (Local Only)
+# ==============================
+*.db
+*.sqlite
+*.sqlite3
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# ==============================
+# Editor & OS Files
+# ==============================
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# ==============================
+# Local/Temporary Artifacts
+# ==============================
+download/
+evidentia-v2/
+evidentia-work/
