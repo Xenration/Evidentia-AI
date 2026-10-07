@@ -7,7 +7,9 @@ import {
   Hypothesis,
   Contradiction,
   InvestigationTask,
-  GeoCase
+  GeoCase,
+  Relationship,
+  SensitivityAnalysisResult
 } from '../types';
 
 import {
@@ -346,20 +348,45 @@ export const evidenceService = {
         }
       } catch {}
     }
-    const found = mockEvidence.find(e => String(e.id) === strId);
+    const engineEvidence = CaseStateEngine.getInstance().getAllEvidence();
+    const foundInEngine = engineEvidence.find((e: Evidence) => 
+      String(e.id) === strId || 
+      String(e.id) === strId.replace(/^E-/, '') ||
+      `E-${e.id}` === strId
+    );
+    if (foundInEngine) return normalizeEvidence(foundInEngine);
+
+    const found = mockEvidence.find((e: Evidence) => 
+      String(e.id) === strId || 
+      String(e.id) === strId.replace(/^E-/, '') ||
+      `E-${e.id}` === strId
+    );
     return found ? normalizeEvidence(found) : undefined;
   },
 
-  analyzeEvidence: async (evidenceId: string | number): Promise<any> => {
+  analyzeEvidence: async (evidenceId: string | number, caseId?: string): Promise<any> => {
     const strId = String(evidenceId);
     const online = await checkBackend();
     if (online) {
       try {
-        const res = await fetch(`${API_BASE}/evidence/${strId}/analyze`, {
-          method: 'POST',
-        });
+        const url = caseId 
+          ? `${API_BASE}/cases/${caseId}/pipeline/process-evidence/${strId}`
+          : `${API_BASE}/evidence/${strId}/analyze`;
+        const res = await fetch(url, { method: 'POST' });
         if (res.ok) {
-          return await res.json();
+          const data = await res.json();
+          // Ingest new pipeline entities, contradictions, hypotheses, tasks into engine state
+          const engine = CaseStateEngine.getInstance();
+          if (Array.isArray(data.entities)) data.entities.forEach((e: any) => engine.addEntity(e));
+          if (Array.isArray(data.contradictions)) data.contradictions.forEach((c: any) => engine.addContradiction(c));
+          if (Array.isArray(data.tasks)) data.tasks.forEach((t: any) => engine.addTask(t));
+          if (Array.isArray(data.hypotheses)) {
+            data.hypotheses.forEach((h: any) => {
+              engine.updateHypothesisConfidence(String(h.id), Math.round(h.support_score ?? h.confidence ?? 50));
+            });
+          }
+          engine.notifyListeners();
+          return data;
         }
       } catch {}
     }
@@ -442,16 +469,450 @@ export const timelineService = {
 // ============================================================
 export const contradictionService = {
   getContradictionsForCase: async (caseId: string): Promise<Contradiction[]> => {
+    const online = await checkBackend();
+    if (online) {
+      try {
+        const res = await fetch(`${API_BASE}/cases/${caseId}/contradictions`);
+        if (res.ok) {
+          const data = await handleResponse<any[]>(res);
+          if (Array.isArray(data) && data.length > 0) {
+            const mapped: Contradiction[] = data.map((c: any) => ({
+              id: `C-${c.id}`,
+              caseId: String(c.case_id || caseId),
+              statementA: c.statement_a || c.statementA,
+              sourceAId: String(c.source_a_id || c.sourceAId || 'Exhibit A'),
+              statementB: c.statement_b || c.statementB,
+              sourceBId: String(c.source_b_id || c.sourceBId || 'Exhibit B'),
+              conflictType: c.conflict_type || c.conflictType || 'Forensic Inconsistency',
+              confidence: typeof c.confidence === 'number' ? c.confidence : 90,
+              status: c.status || 'Detected'
+            }));
+            return mapped;
+          }
+        }
+      } catch {}
+    }
     return CaseStateEngine.getInstance().getContradictionsForCase(caseId);
+  },
+
+  detectContradictions: async (caseId: string): Promise<Contradiction[]> => {
+    const online = await checkBackend();
+    if (online) {
+      try {
+        const res = await fetch(`${API_BASE}/cases/${caseId}/detect-contradictions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        if (res.ok) {
+          const data = await handleResponse<any>(res);
+          const rawItems = Array.isArray(data) ? data : (data.contradictions || []);
+          const mapped: Contradiction[] = rawItems.map((c: any) => ({
+            id: `C-${c.id}`,
+            caseId: String(c.case_id || caseId),
+            statementA: c.statement_a || c.statementA,
+            sourceAId: String(c.source_a_id || c.sourceAId || 'Exhibit A'),
+            statementB: c.statement_b || c.statementB,
+            sourceBId: String(c.source_b_id || c.sourceBId || 'Exhibit B'),
+            conflictType: c.conflict_type || c.conflictType || 'Forensic Inconsistency',
+            confidence: typeof c.confidence === 'number' ? c.confidence : 90,
+            status: c.status || 'Detected'
+          }));
+
+          const engine = CaseStateEngine.getInstance();
+          mapped.forEach(c => engine.addContradiction(c));
+          engine.notifyListeners();
+          return mapped;
+        }
+      } catch (err) {
+        console.error('Failed to run backend NLI contradiction detection:', err);
+      }
+    }
+    return CaseStateEngine.getInstance().getContradictionsForCase(caseId);
+  },
+
+  updateStatus: async (contradictionId: string | number, status: 'Detected' | 'Under Review' | 'Resolved' | 'Dismissed'): Promise<boolean> => {
+    const numId = String(contradictionId).replace(/\D/g, '');
+    const online = await checkBackend();
+    if (online && numId) {
+      try {
+        const res = await fetch(`${API_BASE}/contradictions/${numId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status })
+        });
+        return res.ok;
+      } catch {}
+    }
+    return true;
   }
 };
 
 // ============================================================
-// HYPOTHESIS SERVICE
+// RELATIONSHIP SERVICE (SEMANTIC KNOWLEDGE GRAPH)
 // ============================================================
+export const relationshipService = {
+  getRelationshipsForCase: async (caseId: string): Promise<Relationship[]> => {
+    const online = await checkBackend();
+    if (online) {
+      try {
+        const res = await fetch(`${API_BASE}/cases/${caseId}/relationships`);
+        if (res.ok) {
+          const list = await handleResponse<any[]>(res);
+          if (Array.isArray(list)) {
+            const mapped: Relationship[] = list.map((r: any) => ({
+              id: `REL-${r.id}`,
+              caseId: String(r.case_id || caseId),
+              sourceEntityId: String(r.source_entity_id),
+              targetEntityId: String(r.target_entity_id),
+              relationType: r.relation_type,
+              evidenceId: r.evidence_id ? String(r.evidence_id) : undefined,
+              confidence: typeof r.confidence === 'number' ? r.confidence : 0.9,
+              reason: r.reason || '',
+              sourceEntityName: r.source_entity_name,
+              targetEntityName: r.target_entity_name,
+              createdAt: r.created_at
+            }));
+            const engine = CaseStateEngine.getInstance();
+            engine.setRelationshipsForCase(caseId, mapped);
+            return mapped;
+          }
+        }
+      } catch (err) {
+        console.error('Failed to get relationships:', err);
+      }
+    }
+    return CaseStateEngine.getInstance().getRelationshipsForCase(caseId);
+  },
+
+  extractRelationships: async (caseId: string): Promise<Relationship[]> => {
+    const online = await checkBackend();
+    if (online) {
+      try {
+        const res = await fetch(`${API_BASE}/cases/${caseId}/extract-relationships`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        if (res.ok) {
+          const list = await handleResponse<any[]>(res);
+          if (Array.isArray(list)) {
+            const mapped: Relationship[] = list.map((r: any) => ({
+              id: `REL-${r.id}`,
+              caseId: String(r.case_id || caseId),
+              sourceEntityId: String(r.source_entity_id),
+              targetEntityId: String(r.target_entity_id),
+              relationType: r.relation_type,
+              evidenceId: r.evidence_id ? String(r.evidence_id) : undefined,
+              confidence: typeof r.confidence === 'number' ? r.confidence : 0.9,
+              reason: r.reason || '',
+              sourceEntityName: r.source_entity_name,
+              targetEntityName: r.target_entity_name,
+              createdAt: r.created_at
+            }));
+            const engine = CaseStateEngine.getInstance();
+            engine.setRelationshipsForCase(caseId, mapped);
+            engine.notifyListeners();
+            return mapped;
+          }
+        }
+      } catch (err) {
+        console.error('Failed to extract relationships:', err);
+      }
+    }
+    return CaseStateEngine.getInstance().getRelationshipsForCase(caseId);
+  },
+
+  createRelationship: async (caseId: string, rel: Partial<Relationship>): Promise<Relationship | null> => {
+    const online = await checkBackend();
+    if (online) {
+      try {
+        const res = await fetch(`${API_BASE}/cases/${caseId}/relationships`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            source_entity_id: parseInt(String(rel.sourceEntityId).replace(/\D/g, '')),
+            target_entity_id: parseInt(String(rel.targetEntityId).replace(/\D/g, '')),
+            relation_type: rel.relationType,
+            evidence_id: rel.evidenceId ? parseInt(String(rel.evidenceId).replace(/\D/g, '')) : null,
+            confidence: rel.confidence || 0.9,
+            reason: rel.reason
+          })
+        });
+        if (res.ok) {
+          const r = await handleResponse<any>(res);
+          const mapped: Relationship = {
+            id: `REL-${r.id}`,
+            caseId: String(r.case_id || caseId),
+            sourceEntityId: String(r.source_entity_id),
+            targetEntityId: String(r.target_entity_id),
+            relationType: r.relation_type,
+            evidenceId: r.evidence_id ? String(r.evidence_id) : undefined,
+            confidence: r.confidence,
+            reason: r.reason,
+            sourceEntityName: r.source_entity_name,
+            targetEntityName: r.target_entity_name
+          };
+          CaseStateEngine.getInstance().addRelationship(mapped);
+          CaseStateEngine.getInstance().notifyListeners();
+          return mapped;
+        }
+      } catch (err) {
+        console.error('Failed to create relationship:', err);
+      }
+    }
+    return null;
+  }
+};
+
+// ============================================================
+// HYPOTHESIS NORMALIZER & SERVICE
+// ============================================================
+
+
+export function normalizeHypothesis(h: any): Hypothesis {
+  if (!h) return h;
+  const supporting: string[] = Array.isArray(h.supportingEvidenceIds) ? [...h.supportingEvidenceIds] : [];
+  const contradicting: string[] = Array.isArray(h.contradictingEvidenceIds) ? [...h.contradictingEvidenceIds] : [];
+  const assessments: any[] = Array.isArray(h.assessments) ? h.assessments : [];
+
+  // Derive supporting and contradicting from backend assessments if present
+  if (assessments.length > 0 && supporting.length === 0 && contradicting.length === 0) {
+    assessments.forEach((a: any) => {
+      const cls = (a.classification || '').toLowerCase();
+      const evId = String(a.evidence_id || a.evidenceId || '');
+      if (cls.includes('support') && !supporting.includes(evId)) supporting.push(evId);
+      if (cls.includes('contradiction') && !contradicting.includes(evId)) contradicting.push(evId);
+    });
+  }
+
+  const score = typeof h.support_score === 'number' ? h.support_score : (typeof h.confidence === 'number' ? h.confidence : 50.0);
+
+  return {
+    ...h,
+    id: String(h.id),
+    caseId: String(h.caseId || h.case_id || ''),
+    title: h.title || 'Untitled Hypothesis',
+    description: h.description || '',
+    status: h.status || 'Active',
+    confidence: Math.round(score),
+    support_score: score,
+    supportingEvidenceIds: supporting,
+    contradictingEvidenceIds: contradicting,
+    relatedEntityIds: Array.isArray(h.relatedEntityIds) ? h.relatedEntityIds : [],
+    assessments,
+    assessment_count: assessments.length || h.assessment_count || 0,
+    created_at: h.created_at || new Date().toISOString()
+  };
+}
+
 export const hypothesisService = {
   getHypothesesForCase: async (caseId: string): Promise<Hypothesis[]> => {
-    return CaseStateEngine.getInstance().getHypothesesForCase(caseId);
+    const online = await checkBackend();
+    if (online) {
+      try {
+        const res = await fetch(`${API_BASE}/cases/${caseId}/hypotheses`);
+        if (res.ok) {
+          const list = await handleResponse<any[]>(res);
+          if (Array.isArray(list) && list.length > 0) {
+            // Also fetch details for each hypothesis to include assessments
+            const detailed = await Promise.all(
+              list.map(async (h) => {
+                try {
+                  const detailRes = await fetch(`${API_BASE}/hypotheses/${h.id}`);
+                  if (detailRes.ok) {
+                    const detailData = await handleResponse<any>(detailRes);
+                    return normalizeHypothesis(detailData);
+                  }
+                } catch {}
+                return normalizeHypothesis(h);
+              })
+            );
+            return detailed;
+          }
+        }
+      } catch {}
+    }
+    return CaseStateEngine.getInstance().getHypothesesForCase(caseId).map(normalizeHypothesis);
+  },
+
+  getHypothesisById: async (hypothesisId: string | number): Promise<Hypothesis | undefined> => {
+    const online = await checkBackend();
+    if (online) {
+      try {
+        const res = await fetch(`${API_BASE}/hypotheses/${hypothesisId}`);
+        if (res.ok) {
+          const data = await handleResponse<any>(res);
+          return normalizeHypothesis(data);
+        }
+      } catch {}
+    }
+    return undefined;
+  },
+
+  createHypothesis: async (caseId: string, data: { title: string; description?: string; status?: string }): Promise<Hypothesis> => {
+    const online = await checkBackend();
+    if (online) {
+      try {
+        const res = await fetch(`${API_BASE}/cases/${caseId}/hypotheses`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        });
+        if (res.ok) {
+          const created = await handleResponse<any>(res);
+          return normalizeHypothesis(created);
+        }
+      } catch {}
+    }
+    const newHyp = normalizeHypothesis({
+      id: `H-${Date.now().toString().slice(-4)}`,
+      caseId,
+      title: data.title,
+      description: data.description || '',
+      status: data.status || 'Active',
+      confidence: 50,
+      support_score: 50,
+      supportingEvidenceIds: [],
+      contradictingEvidenceIds: [],
+      assessments: []
+    });
+    return newHyp;
+  },
+
+  evaluateHypothesis: async (hypothesisId: string | number): Promise<Hypothesis | undefined> => {
+    const online = await checkBackend();
+    if (online) {
+      try {
+        const res = await fetch(`${API_BASE}/hypotheses/${hypothesisId}/evaluate`, {
+          method: 'POST',
+        });
+        if (res.ok) {
+          const data = await handleResponse<any>(res);
+          return normalizeHypothesis(data);
+        }
+      } catch {}
+    }
+    return undefined;
+  },
+
+  analyzeHypotheses: async (caseId: string): Promise<Hypothesis[]> => {
+    const online = await checkBackend();
+    if (online) {
+      try {
+        const res = await fetch(`${API_BASE}/cases/${caseId}/analyze-hypotheses`, {
+          method: 'POST',
+        });
+        if (res.ok) {
+          const list = await handleResponse<any[]>(res);
+          if (Array.isArray(list) && list.length > 0) {
+            const normalized = list.map(normalizeHypothesis);
+            const engine = CaseStateEngine.getInstance();
+            normalized.forEach(h => {
+              engine.updateHypothesisConfidence(h.id, h.confidence);
+            });
+            engine.notifyListeners();
+            return normalized;
+          }
+        }
+      } catch (err) {
+        console.error('Failed to run backend hypothesis analysis:', err);
+      }
+    }
+    return CaseStateEngine.getInstance().getHypothesesForCase(caseId).map(normalizeHypothesis);
+  },
+
+  assessEvidence: async (hypothesisId: string | number, assessment: { evidence_id: number; classification: string; reason?: string }): Promise<any> => {
+    const online = await checkBackend();
+    if (online) {
+      try {
+        const res = await fetch(`${API_BASE}/hypotheses/${hypothesisId}/assessments`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(assessment),
+        });
+        if (res.ok) {
+          return await handleResponse<any>(res);
+        }
+      } catch {}
+    }
+    return null;
+  },
+
+  overrideAssessment: async (caseId: string, payload: { hypothesis_id: number | string; evidence_id: number | string; classification: string; analyst_notes?: string }): Promise<any> => {
+    const online = await checkBackend();
+    if (online) {
+      try {
+        const res = await fetch(`${API_BASE}/cases/${caseId}/assessments/override`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            hypothesis_id: Number(String(payload.hypothesis_id).replace(/\D/g, '')),
+            evidence_id: Number(String(payload.evidence_id).replace(/\D/g, '')),
+            classification: payload.classification,
+            analyst_notes: payload.analyst_notes || 'Investigator analytical override'
+          })
+        });
+        if (res.ok) {
+          return await handleResponse<any>(res);
+        }
+      } catch (err) {
+        console.error('Failed to apply analyst override:', err);
+      }
+    }
+    return null;
+  },
+
+  resetAssessment: async (caseId: string, hypothesisId: number | string, evidenceId: number | string): Promise<any> => {
+    const online = await checkBackend();
+    if (online) {
+      try {
+        const hId = Number(String(hypothesisId).replace(/\D/g, ''));
+        const evId = Number(String(evidenceId).replace(/\D/g, ''));
+        const res = await fetch(`${API_BASE}/cases/${caseId}/assessments/reset?hypothesis_id=${hId}&evidence_id=${evId}`, {
+          method: 'POST'
+        });
+        if (res.ok) {
+          return await handleResponse<any>(res);
+        }
+      } catch (err) {
+        console.error('Failed to reset assessment:', err);
+      }
+    }
+    return null;
+  },
+
+  getSensitivityAnalysis: async (caseId: string): Promise<SensitivityAnalysisResult | null> => {
+    const online = await checkBackend();
+    if (online) {
+      try {
+        const res = await fetch(`${API_BASE}/cases/${caseId}/ach/sensitivity-analysis`);
+        if (res.ok) {
+          return await handleResponse<SensitivityAnalysisResult>(res);
+        }
+      } catch (err) {
+        console.error('Failed to fetch sensitivity analysis:', err);
+      }
+    }
+    return null;
+  },
+
+  calculateACHWithExclusions: async (caseId: string, excludedEvidenceIds: (number | string)[]): Promise<any> => {
+    const online = await checkBackend();
+    if (online) {
+      try {
+        const numIds = excludedEvidenceIds.map(id => Number(String(id).replace(/\D/g, ''))).filter(n => !isNaN(n));
+        const res = await fetch(`${API_BASE}/cases/${caseId}/ach/calculate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ excluded_evidence_ids: numIds })
+        });
+        if (res.ok) {
+          return await handleResponse<any>(res);
+        }
+      } catch (err) {
+        console.error('Failed to calculate ACH with exclusions:', err);
+      }
+    }
+    return null;
   }
 };
 
@@ -460,7 +921,84 @@ export const hypothesisService = {
 // ============================================================
 export const investigationService = {
   getTasksForCase: async (caseId: string): Promise<InvestigationTask[]> => {
+    const online = await checkBackend();
+    if (online) {
+      try {
+        const res = await fetch(`${API_BASE}/cases/${caseId}/tasks`);
+        if (res.ok) {
+          const data = await handleResponse<any[]>(res);
+          if (Array.isArray(data) && data.length > 0) {
+            const mapped: InvestigationTask[] = data.map((t: any) => ({
+              id: `TSK-${t.id}`,
+              caseId: String(t.case_id || caseId),
+              task: t.task,
+              reason: t.reason || 'Generated by AI Forensic Intelligence Pipeline',
+              relatedHypothesisId: t.related_hypothesis_id || t.relatedHypothesisId,
+              relatedContradictionId: t.related_contradiction_id || t.relatedContradictionId,
+              relatedEvidenceId: t.related_evidence_id || t.relatedEvidenceId,
+              priority: (t.priority || 'High') as 'High' | 'Medium' | 'Low',
+              status: (t.status || 'Pending') as 'Pending' | 'In Progress' | 'Completed',
+              assignedTo: t.assigned_to || t.assignedTo || 'Lead Investigator'
+            }));
+            return mapped;
+          }
+        }
+      } catch {}
+    }
     return CaseStateEngine.getInstance().getTasksForCase(caseId);
+  },
+
+  createTask: async (taskData: {
+    caseId: string;
+    task: string;
+    reason?: string;
+    relatedHypothesisId?: string;
+    relatedContradictionId?: string;
+    relatedEvidenceId?: string;
+    priority?: 'High' | 'Medium' | 'Low';
+    status?: 'Pending' | 'In Progress' | 'Completed';
+    assignedTo?: string;
+  }): Promise<InvestigationTask | null> => {
+    const online = await checkBackend();
+    if (online) {
+      try {
+        const res = await fetch(`${API_BASE}/cases/${taskData.caseId}/tasks`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            task: taskData.task,
+            reason: taskData.reason,
+            related_hypothesis_id: taskData.relatedHypothesisId,
+            related_contradiction_id: taskData.relatedContradictionId,
+            related_evidence_id: taskData.relatedEvidenceId,
+            priority: taskData.priority || 'High',
+            status: taskData.status || 'Pending',
+            assigned_to: taskData.assignedTo || 'Lead Investigator'
+          })
+        });
+        if (res.ok) {
+          const t = await handleResponse<any>(res);
+          const taskObj: InvestigationTask = {
+            id: `TSK-${t.id}`,
+            caseId: String(t.case_id || taskData.caseId),
+            task: t.task,
+            reason: t.reason || '',
+            priority: (t.priority || 'High') as any,
+            status: (t.status || 'Pending') as any,
+            relatedContradictionId: t.related_contradiction_id,
+            relatedHypothesisId: t.related_hypothesis_id,
+            relatedEvidenceId: t.related_evidence_id,
+            assignedTo: t.assigned_to || 'Lead Investigator'
+          };
+          CaseStateEngine.getInstance().addTask(taskObj);
+          CaseStateEngine.getInstance().notifyListeners();
+          return taskObj;
+        }
+      } catch (err) {
+        console.error('Failed to create task on backend:', err);
+      }
+    }
+    return null;
   }
 };
 

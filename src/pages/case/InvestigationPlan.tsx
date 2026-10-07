@@ -34,8 +34,8 @@ export function InvestigationPlan() {
       </div>
 
       <div className="space-y-4 mt-8">
-        {tasks.map(task => (
-          <Card key={task.id} className={cn(
+        {tasks.map((task, idx) => (
+          <Card key={`${task.id}-${idx}`} className={cn(
             "border-l-4 transition-colors hover:bg-surface/50",
             task.priority === 'High' ? "border-l-red-500" : task.priority === 'Medium' ? "border-l-yellow-500" : "border-l-blue-500",
             task.status === 'Completed' && "opacity-60 grayscale border-l-green-500"

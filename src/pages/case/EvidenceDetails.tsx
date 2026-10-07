@@ -1,6 +1,6 @@
 import { useParams, Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { evidenceService } from '../../services';
+import { evidenceService, hypothesisService } from '../../services';
 import { Evidence, Entity, Hypothesis } from '../../types';
 import { CaseStateEngine } from '../../engine/CaseStateEngine';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
@@ -8,7 +8,7 @@ import {
   FileText, ArrowLeft, Loader2, Database, BrainCircuit, Scan, ShieldCheck, 
   Tag, Users, Clock, Eye, AlertTriangle, CheckCircle2, 
   MapPin, Sparkles, Building, Car, Award, ChevronRight, Fingerprint, RefreshCw,
-  Download, ExternalLink, FileCode, Scale, BookOpen
+  Download, ExternalLink, FileCode, Scale, BookOpen, Lightbulb, GitBranch, ArrowUpRight
 } from 'lucide-react';
 import { cn } from '../../utils';
 
@@ -136,7 +136,7 @@ export function EvidenceDetails() {
 
     if (caseId) {
       setCaseEntities(engine.getEntitiesForCase(caseId));
-      setCaseHypotheses(engine.getHypothesesForCase(caseId));
+      hypothesisService.getHypothesesForCase(caseId).then(setCaseHypotheses);
     }
   }, [caseId, evidenceId]);
 
@@ -477,6 +477,87 @@ export function EvidenceDetails() {
             </Card>
           </div>
         </div>
+
+        {/* Hypotheses Supported / Contradicted by this Exhibit (Provenance Back-Link) */}
+        {(() => {
+          const linkedHypotheses = caseHypotheses.filter(h => {
+            const isSup = (h.supportingEvidenceIds || []).some(id => String(id) === String(evidence.id) || String(id) === String(evidenceId));
+            const isCon = (h.contradictingEvidenceIds || []).some(id => String(id) === String(evidence.id) || String(id) === String(evidenceId));
+            const hasAssessment = (h.assessments || []).some(a => 
+              String(a.evidence_id) === String(evidence.id) || 
+              String(a.evidence_id) === String(evidenceId) ||
+              (a.evidence_file_name && a.evidence_file_name === evidence.fileName)
+            );
+            return isSup || isCon || hasAssessment;
+          });
+
+          return (
+            <div className="space-y-4 pt-4 border-t border-border/40">
+              <Card className="border-border bg-surface">
+                <CardHeader className="flex flex-row items-center justify-between pb-3">
+                  <CardTitle className="text-sm text-white flex items-center gap-2">
+                    <GitBranch className="w-4 h-4 text-[#d93829]" />
+                    <span>Hypothesis Provenance & Corroboration Links</span>
+                  </CardTitle>
+                  <Link
+                    to={`/cases/${caseId}/hypotheses`}
+                    className="text-xs font-bold text-[#d93829] hover:underline flex items-center gap-1"
+                  >
+                    Inspect Full Matrix <ArrowUpRight className="w-3.5 h-3.5" />
+                  </Link>
+                </CardHeader>
+                <CardContent>
+                  {linkedHypotheses.length === 0 ? (
+                    <div className="text-xs text-text-muted italic py-3 text-center">
+                      This exhibit has not yet been linked to active investigative hypotheses. Run ACH Dataset Analysis in Hypotheses matrix to generate relational provenance.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {linkedHypotheses.map(h => {
+                        const matchAssessment = (h.assessments || []).find(a => 
+                          String(a.evidence_id) === String(evidence.id) || 
+                          String(a.evidence_id) === String(evidenceId) ||
+                          (a.evidence_file_name && a.evidence_file_name === evidence.fileName)
+                        );
+                        const isSupporting = matchAssessment 
+                          ? (matchAssessment.classification || '').toLowerCase().includes('support')
+                          : (h.supportingEvidenceIds || []).some(id => String(id) === String(evidence.id) || String(id) === String(evidenceId));
+                        const isContradicting = matchAssessment
+                          ? (matchAssessment.classification || '').toLowerCase().includes('contradiction')
+                          : (h.contradictingEvidenceIds || []).some(id => String(id) === String(evidence.id) || String(id) === String(evidenceId));
+
+                        return (
+                          <Link
+                            key={h.id}
+                            to={`/cases/${caseId}/hypotheses`}
+                            className="p-3.5 rounded-xl border border-border/70 hover:border-[#d93829] bg-background hover:bg-[#121c2e] transition-all group block"
+                          >
+                            <div className="flex items-center justify-between gap-2 mb-2">
+                              <span className="font-serif font-bold text-xs text-white group-hover:text-[#d93829] transition-colors truncate">
+                                {h.title}
+                              </span>
+                              <span className={cn(
+                                "px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase shrink-0 border",
+                                isSupporting && "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
+                                isContradicting && "bg-rose-500/10 text-rose-400 border-rose-500/30",
+                                !isSupporting && !isContradicting && "bg-stone-500/10 text-stone-300 border-stone-500/30"
+                              )}>
+                                {matchAssessment?.classification?.replace('_', ' ') || (isSupporting ? 'Strong Support' : isContradicting ? 'Contradiction' : 'Neutral')}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-text-muted leading-relaxed line-clamp-2">
+                              "{matchAssessment?.reason || h.description}"
+                            </p>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );

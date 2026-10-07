@@ -6,6 +6,7 @@ import {
   Sparkles, ShieldCheck, X, Eye, Hash, Scale, Cpu, Calendar
 } from 'lucide-react';
 import { evidenceService } from '../../services';
+import { IntelligencePipeline } from '../../engine/IntelligencePipeline';
 import { Evidence } from '../../types';
 import { cn } from '../../utils';
 
@@ -61,8 +62,9 @@ export function EvidenceList() {
       const uploaded = await evidenceService.uploadEvidence(caseId, file);
       showToast(`Exhibit "${file.name}" uploaded into judicial custody.`);
       await fetchEvidence();
-      // Auto-analyze newly uploaded exhibit
+      // Auto-analyze newly uploaded exhibit through Real Intelligence Pipeline
       if (uploaded?.id) {
+        IntelligencePipeline.processNewEvidence(uploaded);
         handleAnalyze(uploaded.id);
       }
     } catch (error) {
@@ -89,7 +91,7 @@ export function EvidenceList() {
     }));
 
     try {
-      const result = await evidenceService.analyzeEvidence(evidenceId.toString());
+      const result = await evidenceService.analyzeEvidence(evidenceId.toString(), caseId);
       
       // Update with analyzed results
       setEvidence(prev => prev.map(item => {

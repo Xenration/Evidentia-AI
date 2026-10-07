@@ -578,3 +578,222 @@ def extract_entities(text: str) -> list:
 def extract_events(text: str, entities: list) -> list:
     res = analyze_with_fallback("Document", "Document", text)
     return res.get("events", [])
+
+
+# ============================================================
+# GEMINI CONTRADICTION & TASK GENERATION PIPELINE
+# ============================================================
+
+def detect_contradictions_with_gemini(
+    new_evidence: Dict[str, Any],
+    other_evidences: List[Dict[str, Any]],
+    case_context: str = ""
+) -> List[Dict[str, Any]]:
+    """
+    Uses Gemini to perform forensic cross-examination between new evidence
+    and existing exhibits in the case to find contradictions, timeline clashes, or alibi discrepancies.
+    """
+    if not other_evidences:
+        return []
+
+    client = get_gemini_client()
+    new_text = (new_evidence.get("text") or new_evidence.get("extracted_text") or "")[:2500]
+    new_name = new_evidence.get("file_name", "New Exhibit")
+    new_id = new_evidence.get("id")
+
+    # Format existing exhibits
+    exhibits_summary = []
+    for ev in other_evidences[:8]:
+        ev_text = (ev.get("text") or ev.get("extracted_text") or "")[:1500]
+        exhibits_summary.append(
+            f"Exhibit ID {ev.get('id')} ({ev.get('file_name', 'Exhibit')}):\n{ev_text}"
+        )
+    exhibits_str = "\n\n---\n\n".join(exhibits_summary)
+
+    if client:
+        prompt = f"""
+You are a senior criminal forensic investigator and prosecutor.
+Carefully cross-examine this newly processed legal evidence exhibit against the existing evidence docket for this case.
+
+Case Context: {case_context or 'Criminal Investigation'}
+
+NEW EXHIBIT (ID: {new_id}, Name: {new_name}):
+\"\"\"
+{new_text}
+\"\"\"
+
+EXISTING CASE EVIDENCE EXHIBITS:
+\"\"\"
+{exhibits_str}
+\"\"\"
+
+Task:
+Identify any direct factual contradictions, timeline conflicts, contradictory alibis, conflicting movements, or financial discrepancies between the NEW exhibit and ANY existing exhibit.
+
+Return a JSON array of contradictions. If no contradictions exist, return [].
+Format schema:
+[
+  {{
+    "conflict_type": "Alibi Discrepancy | Timeline Conflict | Access Log Discrepancy | Financial Discrepancy | Witness Inconsistency | Forensic Inconsistency",
+    "statement_a": "Direct factual assertion from the EXISTING exhibit citing exhibit ID",
+    "source_a_id": <integer ID of the existing exhibit, or null>,
+    "statement_b": "Direct factual assertion from the NEW exhibit",
+    "source_b_id": {new_id if isinstance(new_id, int) else 'null'},
+    "confidence": 88.0
+  }}
+]
+
+CRITICAL: Return ONLY valid JSON array with NO markdown backticks or commentary.
+"""
+        try:
+            resp = client.models.generate_content(
+                model="gemini-flash-lite-latest",
+                contents=prompt
+            )
+            text = resp.text.strip()
+            if text.startswith("```json"): text = text[7:]
+            elif text.startswith("```"): text = text[3:]
+            if text.endswith("```"): text = text[:-3]
+            parsed = json.loads(text.strip())
+            if isinstance(parsed, list):
+                valid = []
+                for item in parsed:
+                    if item.get("statement_a") and item.get("statement_b"):
+                        valid.append({
+                            "conflict_type": item.get("conflict_type", "Forensic Discrepancy"),
+                            "statement_a": item["statement_a"],
+                            "source_a_id": item.get("source_a_id") if isinstance(item.get("source_a_id"), int) else (other_evidences[0].get("id") if other_evidences else None),
+                            "statement_b": item["statement_b"],
+                            "source_b_id": new_id if isinstance(new_id, int) else None,
+                            "confidence": float(item.get("confidence", 90.0))
+                        })
+                return valid
+        except Exception as e:
+            print(f"[!] Gemini contradiction detection exception: {e}")
+
+    # Deterministic rule-based forensic fallback if Gemini is unreachable
+    fallback_contradictions = []
+    lower_new = new_text.lower()
+    for ev in other_evidences:
+        ev_text = (ev.get("text") or ev.get("extracted_text") or "").lower()
+        ev_id = ev.get("id")
+        # Check alibi / timing discrepancies
+        if "alibi" in lower_new and "cctv" in ev_text:
+            fallback_contradictions.append({
+                "conflict_type": "Alibi Discrepancy",
+                "statement_a": f"Surveillance records in {ev.get('file_name')} document presence at scene.",
+                "source_a_id": ev_id if isinstance(ev_id, int) else None,
+                "statement_b": f"Claimed absence documented in {new_name}.",
+                "source_b_id": new_id if isinstance(new_id, int) else None,
+                "confidence": 88.0
+            })
+        elif "denied" in lower_new and ("call" in ev_text or "cdr" in ev_text):
+            fallback_contradictions.append({
+                "conflict_type": "Communication Inconsistency",
+                "statement_a": f"Cellular records in {ev.get('file_name')} establish active communication.",
+                "source_a_id": ev_id if isinstance(ev_id, int) else None,
+                "statement_b": f"Denial of contact logged in {new_name}.",
+                "source_b_id": new_id if isinstance(new_id, int) else None,
+                "confidence": 85.0
+            })
+
+    return fallback_contradictions
+
+
+def generate_tasks_with_gemini(
+    contradictions: List[Dict[str, Any]],
+    hypotheses: List[Dict[str, Any]],
+    evidence: Dict[str, Any],
+    case_context: str = ""
+) -> List[Dict[str, Any]]:
+    """
+    Uses Gemini to generate actionable, prioritized investigative tasks
+    based on newly uncovered contradictions, active hypotheses, and evidence findings.
+    """
+    client = get_gemini_client()
+    ev_name = evidence.get("file_name", "Exhibit")
+    ev_id = evidence.get("id")
+
+    con_summary = "\n".join([
+        f"- Conflict [{c.get('conflict_type')}]: {c.get('statement_a')} VS {c.get('statement_b')}"
+        for c in contradictions[:5]
+    ]) or "No active contradictions detected."
+
+    hyp_summary = "\n".join([
+        f"- Hypothesis {h.get('id', '')} ({h.get('title', '')}): Support {h.get('support_score', 50)}%"
+        for h in hypotheses[:5]
+    ]) or "Standard case hypotheses."
+
+    if client:
+        prompt = f"""
+You are the Lead Crime Branch Detective Superintendent.
+Based on the current case status, newly processed evidence, detected contradictions, and working hypotheses, formulate 2 to 4 concrete, actionable investigation tasks for the investigation team.
+
+Case Context: {case_context or 'Criminal Investigation'}
+Newly Processed Exhibit: {ev_name} (ID: {ev_id})
+
+Detected Discrepancies:
+{con_summary}
+
+Active Hypotheses:
+{hyp_summary}
+
+Return a JSON array of actionable investigative tasks with this format:
+[
+  {{
+    "task": "Concrete task instruction (e.g. Subpoena secondary cell tower handovers for Kharadi corridor)",
+    "reason": "Detailed investigative rationale explaining why this resolves a contradiction or verifies a hypothesis",
+    "priority": "High | Medium | Low",
+    "assigned_to": "Digital Forensics Unit | Field Detective | Cyber Cell | Legal Team"
+  }}
+]
+
+CRITICAL: Return ONLY valid JSON array with NO markdown backticks or commentary.
+"""
+        try:
+            resp = client.models.generate_content(
+                model="gemini-flash-lite-latest",
+                contents=prompt
+            )
+            text = resp.text.strip()
+            if text.startswith("```json"): text = text[7:]
+            elif text.startswith("```"): text = text[3:]
+            if text.endswith("```"): text = text[:-3]
+            parsed = json.loads(text.strip())
+            if isinstance(parsed, list) and len(parsed) > 0:
+                valid = []
+                for item in parsed:
+                    if item.get("task") and item.get("reason"):
+                        valid.append({
+                            "task": item["task"],
+                            "reason": item["reason"],
+                            "priority": item.get("priority", "High"),
+                            "assigned_to": item.get("assigned_to", "Special Investigation Team"),
+                            "related_evidence_id": ev_id if isinstance(ev_id, int) else None
+                        })
+                return valid
+        except Exception as e:
+            print(f"[!] Gemini task generation exception: {e}")
+
+    # Fallback tasks if Gemini is offline
+    fallback_tasks = []
+    if contradictions:
+        for c in contradictions:
+            fallback_tasks.append({
+                "task": f"Investigate contradiction: {c.get('conflict_type', 'Evidence Conflict')}",
+                "reason": f"Resolve discrepancy between statements: '{c.get('statement_a', '')[:80]}...' and '{c.get('statement_b', '')[:80]}...'.",
+                "priority": "High",
+                "assigned_to": "Forensic Verification Team",
+                "related_evidence_id": ev_id if isinstance(ev_id, int) else None
+            })
+    else:
+        fallback_tasks.append({
+            "task": f"Verify chain of custody certification for {ev_name}",
+            "reason": "Ensure Sec 65B compliance and certificate issuance from network nodal officer.",
+            "priority": "Medium",
+            "assigned_to": "Digital Forensics Unit",
+            "related_evidence_id": ev_id if isinstance(ev_id, int) else None
+        })
+
+    return fallback_tasks
+

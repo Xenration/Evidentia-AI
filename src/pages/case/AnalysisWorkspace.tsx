@@ -1,9 +1,9 @@
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { useEffect, useState, useMemo } from 'react';
 import { evidenceService, entityService, hypothesisService, contradictionService } from '../../services';
 import type { Evidence, Entity, Hypothesis, Contradiction } from '../../types';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
-import { FileText, Users, Lightbulb, AlertTriangle, BrainCircuit, TrendingUp } from 'lucide-react';
+import { FileText, Users, Lightbulb, AlertTriangle, BrainCircuit, TrendingUp, ExternalLink } from 'lucide-react';
 import { cn } from '../../utils';
 
 export function AnalysisWorkspace() {
@@ -120,12 +120,12 @@ export function AnalysisWorkspace() {
                 return (
                   <div key={type} className="flex items-center justify-between p-3 rounded-lg bg-surface/50 border border-border/50">
                     <div>
-                      <div className="text-sm font-medium text-white">{type}</div>
+                      <div className="text-sm font-medium text-[#191410]">{type}</div>
                       <div className="text-xs text-text-muted">{items.length} extracted</div>
                     </div>
                     <div className="text-right">
-                      <div className="text-sm font-bold text-white">{avgConfidence}%</div>
-                      <div className="text-[10px] text-text-muted uppercase">Avg Confidence</div>
+                      <div className="text-sm font-bold text-[#191410]">{avgConfidence}%</div>
+                      <div className="text-[10px] text-text-muted uppercase font-mono">Avg Conf</div>
                     </div>
                   </div>
                 );
@@ -136,27 +136,36 @@ export function AnalysisWorkspace() {
 
         {/* Hypothesis Confidence Ranking */}
         <Card>
-          <CardHeader><CardTitle className="flex items-center gap-2"><TrendingUp className="w-5 h-5 text-yellow-400" /> Hypothesis Confidence Ranking</CardTitle></CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="flex items-center gap-2"><TrendingUp className="w-5 h-5 text-amber-500" /> Hypothesis Confidence Ranking</CardTitle>
+            <Link to={`/cases/${caseId}/hypotheses`} className="text-xs font-bold text-[#d93829] hover:underline flex items-center gap-1">
+              Matrix View <ExternalLink className="w-3 h-3" />
+            </Link>
+          </CardHeader>
           <CardContent>
             <div className="space-y-3">
               {[...hypotheses].sort((a, b) => b.confidence - a.confidence).map(h => (
-                <div key={h.id} className="flex items-center gap-4 p-3 rounded-lg bg-surface/50 border border-border/50 group">
+                <Link 
+                  key={h.id} 
+                  to={`/cases/${caseId}/hypotheses`}
+                  className="flex items-center gap-4 p-3 rounded-lg bg-[#faf7f2] hover:bg-[#f5efe6] border border-[#eae4d9] hover:border-[#d93829] transition-all group block cursor-pointer"
+                >
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-white truncate group-hover:text-primary transition-colors">{h.title}</div>
-                    <div className="text-xs text-text-muted mt-0.5">
+                    <div className="text-sm font-medium text-[#191410] truncate group-hover:text-[#d93829] transition-colors">{h.title}</div>
+                    <div className="text-xs text-text-muted mt-0.5 font-mono">
                       {h.supportingEvidenceIds.length} supporting / {h.contradictingEvidenceIds.length} contradicting
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <div className="w-16 h-1.5 bg-surface-hover rounded-full overflow-hidden">
+                    <div className="w-16 h-1.5 bg-[#eae4d9] rounded-full overflow-hidden">
                       <div
-                        className={cn('h-full rounded-full', h.confidence >= 70 ? 'bg-green-500' : h.confidence >= 40 ? 'bg-yellow-500' : 'bg-red-500')}
+                        className={cn('h-full rounded-full', h.confidence >= 70 ? 'bg-emerald-500' : h.confidence >= 40 ? 'bg-amber-500' : 'bg-rose-500')}
                         style={{ width: `${h.confidence}%` }}
                       />
                     </div>
-                    <span className="text-sm font-bold text-white w-10 text-right">{h.confidence}%</span>
+                    <span className="text-sm font-bold font-mono text-[#191410] w-10 text-right">{h.confidence}%</span>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           </CardContent>
@@ -164,31 +173,40 @@ export function AnalysisWorkspace() {
 
         {/* Evidence Processing Status */}
         <Card>
-          <CardHeader><CardTitle className="flex items-center gap-2"><BrainCircuit className="w-5 h-5 text-purple-400" /> Evidence Processing Queue</CardTitle></CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="flex items-center gap-2"><BrainCircuit className="w-5 h-5 text-purple-500" /> Evidence Processing Queue</CardTitle>
+            <Link to={`/cases/${caseId}/evidence`} className="text-xs font-bold text-[#d93829] hover:underline flex items-center gap-1">
+              All Evidence <ExternalLink className="w-3 h-3" />
+            </Link>
+          </CardHeader>
           <CardContent>
             <div className="space-y-2">
               {evidence.map(ev => (
-                <div key={ev.id} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-surface-hover/50 transition-colors group">
+                <Link 
+                  key={ev.id} 
+                  to={`/cases/${caseId}/evidence/${ev.id}`}
+                  className="flex items-center gap-3 p-2.5 rounded-lg bg-[#faf7f2] hover:bg-[#f5efe6] border border-[#eae4d9] hover:border-purple-300 transition-all group cursor-pointer block"
+                >
                   <div className={cn(
                     'w-2 h-2 rounded-full shrink-0',
-                    ev.processingStatus === 'Analyzed' ? 'bg-green-500' :
+                    ev.processingStatus === 'Analyzed' ? 'bg-emerald-500' :
                     ev.processingStatus === 'Processing' ? 'bg-blue-500 animate-pulse' :
-                    ev.processingStatus === 'Queued' ? 'bg-yellow-500' : 'bg-surface-hover'
+                    ev.processingStatus === 'Queued' ? 'bg-amber-500' : 'bg-stone-300'
                   )} />
                   <div className="flex-1 min-w-0">
-                    <div className="text-xs font-medium text-white truncate group-hover:text-primary transition-colors">{ev.fileName}</div>
-                    <div className="text-[10px] text-text-muted">{ev.id} - {ev.fileType}</div>
+                    <div className="text-xs font-bold text-[#191410] truncate group-hover:text-[#d93829] transition-colors">{ev.fileName}</div>
+                    <div className="text-[10px] text-text-muted font-mono">{ev.id} • {ev.fileType}</div>
                   </div>
                   <span className={cn(
                     'text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border shrink-0',
-                    ev.processingStatus === 'Analyzed' ? 'bg-green-500/10 text-green-400 border-green-500/20' :
-                    ev.processingStatus === 'Processing' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
-                    ev.processingStatus === 'Queued' ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' :
-                    'bg-surface-hover text-text-muted border-border'
+                    ev.processingStatus === 'Analyzed' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                    ev.processingStatus === 'Processing' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                    ev.processingStatus === 'Queued' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                    'bg-stone-100 text-stone-600 border-stone-200'
                   )}>
                     {ev.processingStatus}
                   </span>
-                </div>
+                </Link>
               ))}
             </div>
           </CardContent>

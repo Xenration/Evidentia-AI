@@ -1,4 +1,4 @@
-import { Case, Evidence, Entity, TimelineEvent, Hypothesis, Contradiction, InvestigationTask } from '../types';
+import { Case, Evidence, Entity, TimelineEvent, Hypothesis, Contradiction, InvestigationTask, Relationship } from '../types';
 import { mockCases, mockEvidence, mockEntities, mockTimeline, mockHypotheses, mockContradictions, mockInvestigationTasks } from '../mock-data';
 
 export const CASE_ALIASES: Record<string, string[]> = {
@@ -46,6 +46,7 @@ export class CaseStateEngine {
   private hypotheses: Hypothesis[] = [...mockHypotheses];
   private contradictions: Contradiction[] = [...mockContradictions];
   private tasks: InvestigationTask[] = [...mockInvestigationTasks];
+  private relationships: Relationship[] = [];
 
   // Pub/Sub for React reactivity
   private listeners: Array<() => void> = [];
@@ -75,6 +76,10 @@ export class CaseStateEngine {
   
   public getCaseById(id: string): Case | undefined { 
     return this.cases.find(c => String(c.id) === String(id) || matchesCase(c.id, id)); 
+  }
+
+  public getAllEvidence(): Evidence[] {
+    return this.evidence;
   }
   
   public getEvidenceForCase(caseId: string): Evidence[] { 
@@ -164,4 +169,19 @@ export class CaseStateEngine {
     this.tasks.push(newTask);
     this.notifyListeners();
   }
+
+  public getRelationshipsForCase(caseId: string): Relationship[] {
+    return this.relationships.filter(r => matchesCase(r.caseId, caseId));
+  }
+
+  public setRelationshipsForCase(caseId: string, rels: Relationship[]) {
+    this.relationships = this.relationships.filter(r => !matchesCase(r.caseId, caseId)).concat(rels);
+    this.notifyListeners();
+  }
+
+  public addRelationship(rel: Relationship) {
+    this.relationships.push(rel);
+    this.notifyListeners();
+  }
 }
+
